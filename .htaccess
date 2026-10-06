@@ -1,0 +1,8 @@
+# Block public access to .git internals (scanners probe for /.git/config).
+RewriteEngine On
+RewriteRule (^|/)\.git($|/) - [F,L]
+
+<FilesMatch "(\.bak|\.swp|~)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>

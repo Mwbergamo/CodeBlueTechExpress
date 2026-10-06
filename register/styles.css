@@ -1,0 +1,699 @@
+/* register/styles.css — Register retail checkout app.
+   Shares SolutionsHub/Relationships' dark-navy / Space Grotesk + IBM Plex
+   Sans look; app.js renders straight into #app-root with plain DOM/innerHTML,
+   same as relationships/app.js. */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: oklch(0.15 0.028 255);
+  font-family: 'IBM Plex Sans', sans-serif;
+  color: oklch(0.9 0.006 255);
+}
+
+a { color: inherit; }
+
+.loading, .empty-state { padding: 60px 20px; text-align: center; color: oklch(0.6 0.02 255); font-size: 14px; }
+
+.error-banner {
+  margin: 0 0 18px;
+  padding: 12px 16px;
+  background: oklch(0.28 0.09 25);
+  border: 1px solid oklch(0.4 0.12 25);
+  color: oklch(0.92 0.03 25);
+  border-radius: 10px;
+  font-size: 13.5px;
+}
+
+/* ---- Topbar (same shape as relationships/styles.css) ---- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 40px;
+  border-bottom: 1px solid oklch(0.26 0.03 255);
+  flex-wrap: wrap;
+}
+.topbar-left { display: flex; align-items: center; gap: 14px; }
+.brand { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; color: white; }
+.brand-sub { font-size: 12.5px; color: oklch(0.6 0.02 255); }
+.topbar-nav { display: flex; gap: 4px; background: oklch(0.2 0.02 255); border-radius: 999px; padding: 3px; }
+.nav-btn { background: transparent; border: none; color: oklch(0.62 0.02 255); font-size: 12.5px; font-weight: 700; padding: 7px 14px; border-radius: 999px; cursor: pointer; }
+.nav-btn.active { background: #2f8fef; color: white; }
+.back-to-hub { font-size: 12.5px; font-weight: 600; color: oklch(0.7 0.02 255); text-decoration: none; padding: 8px 14px; border-radius: 999px; border: 1px solid oklch(0.32 0.03 255); }
+.back-to-hub:hover { border-color: oklch(0.45 0.03 255); }
+/* ---- Metrics/Past Sales square nav buttons (added 2026-09-14) ---- */
+.topbar-tiles { display: flex; gap: 8px; }
+.tile-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  width: 64px; height: 52px; border-radius: 12px; border: 1px solid oklch(0.32 0.03 255);
+  background: oklch(0.2 0.02 255); color: oklch(0.75 0.02 255); cursor: pointer;
+}
+.tile-btn:hover { border-color: #2f8fef; color: #fff; }
+.tile-btn.active { background: #2f8fef; border-color: #2f8fef; color: #fff; }
+.tile-btn-icon { font-size: 17px; line-height: 1; }
+.tile-btn-label { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
+
+.topbar-right { display: flex; align-items: center; gap: 14px; font-size: 13px; color: oklch(0.65 0.02 255); }
+.signout-btn { background: transparent; border: 1px solid oklch(0.32 0.03 255); color: oklch(0.75 0.02 255); font-size: 12.5px; font-weight: 600; padding: 8px 14px; border-radius: 999px; cursor: pointer; }
+.signout-btn:hover { border-color: oklch(0.45 0.03 255); }
+
+.main { padding: 28px 40px 60px; max-width: 1320px; margin: 0 auto; }
+
+/* ---- Register layout: catalog on the left, cart on the right ---- */
+
+.register-layout {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .register-layout { grid-template-columns: 1fr; }
+}
+
+.catalog-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.catalog-toolbar input[type="text"] {
+  flex: 1;
+  min-width: 200px;
+  background: oklch(0.98 0.006 255);
+  border: none;
+  border-radius: 999px;
+  padding: 11px 18px;
+  font-size: 14px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  color: oklch(0.2 0.03 255);
+}
+
+.in-stock-toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; color: oklch(0.7 0.02 255); white-space: nowrap; }
+
+.sync-btn {
+  background: transparent;
+  border: 1px solid oklch(0.35 0.03 255);
+  color: oklch(0.8 0.02 255);
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 10px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sync-btn:hover { border-color: #2f8fef; }
+.sync-btn:disabled { opacity: .6; cursor: default; }
+.sync-message { font-size: 12.5px; color: oklch(0.65 0.15 150); }
+
+/* ---- Type/Category/SubCategory browse menu (added 2026-09-14) ---- */
+
+.type-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.type-nav-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.type-nav-row-sub { padding-left: 4px; }
+
+.type-chip {
+  background: transparent;
+  border: 1px solid oklch(0.35 0.03 255);
+  color: oklch(0.75 0.02 255);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.type-chip:hover { border-color: #2f8fef; color: #fff; }
+.type-chip.active {
+  background: #2f8fef;
+  border-color: #2f8fef;
+  color: #fff;
+}
+.type-nav-row-sub .type-chip {
+  font-size: 11.5px;
+  padding: 5px 12px;
+  opacity: .9;
+}
+
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
+}
+
+.catalog-card {
+  background: oklch(0.98 0.006 255);
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  transition: transform .08s ease;
+  color: oklch(0.2 0.03 255);
+}
+.catalog-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,0.35); }
+.catalog-card.out-of-stock { opacity: .5; cursor: default; }
+.catalog-card.out-of-stock:hover { transform: none; box-shadow: none; }
+
+.catalog-card-name { font-size: 14.5px; font-weight: 700; margin-bottom: 4px; }
+.catalog-card-badge {
+  display: inline-block; vertical-align: middle; margin-left: 4px;
+  background: oklch(0.9 0.08 150); color: oklch(0.3 0.1 150);
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em;
+  padding: 2px 7px; border-radius: 999px;
+}
+.catalog-card-desc { font-size: 12px; color: oklch(0.5 0.02 255); line-height: 1.4; margin-bottom: 10px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.catalog-card-mfg { font-size: 10.5px; color: oklch(0.6 0.02 255); margin-bottom: 8px; letter-spacing: .01em; }
+.catalog-card-footer { display: flex; align-items: center; justify-content: space-between; }
+.catalog-card-price { font-size: 15px; font-weight: 700; color: #1a6fd6; }
+.catalog-card-stock { font-size: 11px; color: oklch(0.55 0.02 255); }
+.catalog-card-stock.zero { color: oklch(0.55 0.18 30); font-weight: 700; }
+
+/* ---- Cart pane ---- */
+
+.cart-pane {
+  background: oklch(0.19 0.03 255);
+  border: 1px solid oklch(0.26 0.03 255);
+  border-radius: 16px;
+  padding: 18px;
+  position: sticky;
+  top: 18px;
+}
+
+.cart-header { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; color: white; margin-bottom: 12px; }
+.cart-empty { font-size: 13px; color: oklch(0.55 0.02 255); padding: 20px 0; text-align: center; }
+
+.cart-items { display: flex; flex-direction: column; gap: 10px; max-height: 46vh; overflow-y: auto; margin-bottom: 12px; }
+
+.cart-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid oklch(0.26 0.03 255);
+}
+.cart-item-name { font-size: 13px; font-weight: 700; color: white; }
+.cart-item-price { font-size: 11px; color: oklch(0.6 0.02 255); }
+.cart-item-qty { display: flex; align-items: center; gap: 4px; }
+.cart-item-qty button {
+  width: 22px; height: 22px; border-radius: 50%; border: 1px solid oklch(0.4 0.03 255);
+  background: transparent; color: oklch(0.85 0.02 255); cursor: pointer; font-size: 13px; line-height: 1;
+}
+.cart-item-qty input {
+  width: 34px; text-align: center; background: transparent; border: none; color: white; font-size: 13px;
+}
+.cart-item-total { font-size: 13px; font-weight: 700; color: white; min-width: 56px; text-align: right; }
+.cart-item-remove { background: transparent; border: none; color: oklch(0.6 0.02 255); cursor: pointer; font-size: 13px; }
+.cart-item-remove:hover { color: oklch(0.55 0.18 30); }
+
+.cart-subtotal-row { display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; color: white; padding: 12px 0; border-top: 1px solid oklch(0.3 0.03 255); }
+
+.checkout-btn {
+  width: 100%; background: #2f8fef; border: none; color: white; font-size: 14.5px; font-weight: 700;
+  padding: 13px 0; border-radius: 999px; cursor: pointer; margin-top: 4px;
+}
+.checkout-btn:disabled { opacity: .5; cursor: default; }
+.clear-cart-btn { width: 100%; background: transparent; border: none; color: oklch(0.55 0.02 255); font-size: 12px; padding: 10px 0 0; cursor: pointer; }
+.clear-cart-btn:hover { color: oklch(0.75 0.02 255); }
+
+/* ---- Modals (checkout + receipt) ---- */
+
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(5,8,20,0.72);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; z-index: 50;
+}
+
+.modal {
+  background: oklch(0.98 0.006 255);
+  border-radius: 18px;
+  padding: 26px 28px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+  color: oklch(0.2 0.03 255);
+}
+
+.modal-title { font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700; margin-bottom: 16px; }
+
+.checkout-modal label, .screen-panel label {
+  display: block; margin-top: 14px; font-size: 11px; font-weight: 700;
+  color: oklch(0.5 0.02 255); text-transform: uppercase; letter-spacing: .03em;
+}
+.checkout-modal input, .checkout-modal select, .screen-panel input, .screen-panel select {
+  margin-top: 5px; width: 100%; font-size: 14px; padding: 10px 12px;
+  border: 1px solid oklch(0.85 0.006 255); border-radius: 8px; font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.checkout-summary { background: oklch(0.94 0.006 255); border-radius: 12px; padding: 14px 16px; margin-bottom: 6px; }
+
+/* Task #91 (added 2026-09-17) -- the checkout modal's Monthly/Annual
+   Protection Plan billing-cycle note, same treatment as the computer
+   builder's .cb-protection-unavailable-note. */
+.checkout-billing-note { font-size: 11px; color: oklch(0.55 0.02 255); margin: -4px 0 10px; }
+.checkout-summary-row { display: flex; align-items: center; justify-content: space-between; font-size: 14px; padding: 5px 0; }
+.checkout-summary-row.total { font-weight: 700; font-size: 16px; border-top: 1px solid oklch(0.85 0.006 255); margin-top: 6px; padding-top: 10px; }
+
+/* ---- Customer (Company/Contact) picker -- added 2026-09-14, replaces
+   the old free-text Customer Name field. Lives inside .checkout-modal, so
+   it inherits that ancestor's label/input/select styling above. ---- */
+
+.customer-section { margin-top: 5px; }
+
+.customer-search-input {
+  margin-top: 5px; width: 100%; font-size: 14px; padding: 10px 12px;
+  border: 1px solid oklch(0.85 0.006 255); border-radius: 8px; font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.customer-search-loading { padding: 10px 2px; font-size: 12.5px; color: oklch(0.5 0.02 255); }
+.customer-no-results { padding: 10px 2px; font-size: 12.5px; color: oklch(0.5 0.02 255); }
+
+.customer-results {
+  margin-top: 8px; max-height: 200px; overflow-y: auto;
+  border: 1px solid oklch(0.88 0.006 255); border-radius: 8px;
+}
+.customer-result {
+  display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left;
+  padding: 9px 12px; border: none; border-bottom: 1px solid oklch(0.92 0.006 255);
+  background: oklch(0.98 0.006 255); cursor: pointer; font-family: 'IBM Plex Sans', sans-serif;
+}
+.customer-result:last-child { border-bottom: none; }
+.customer-result:hover { background: oklch(0.94 0.006 255); }
+.customer-result-type {
+  flex: 0 0 auto; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+  color: oklch(0.55 0.09 255); background: oklch(0.92 0.03 255); border-radius: 5px; padding: 2px 6px;
+}
+.customer-result-name { flex: 1 1 auto; font-size: 13.5px; font-weight: 600; }
+.customer-result-sub { flex: 0 0 auto; font-size: 12px; color: oklch(0.5 0.02 255); }
+
+.customer-add-btn {
+  margin-top: 10px; width: 100%; padding: 10px 0; border-radius: 8px; font-size: 13.5px; font-weight: 700;
+  background: transparent; border: 1px dashed oklch(0.7 0.006 255); color: oklch(0.4 0.02 255); cursor: pointer;
+}
+.customer-add-btn:hover { background: oklch(0.94 0.006 255); }
+
+.customer-context-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 13.5px; font-weight: 700; margin-bottom: 4px;
+}
+.customer-back-btn {
+  background: transparent; border: none; color: #2f8fef; font-size: 12.5px; font-weight: 700; cursor: pointer; padding: 2px 0;
+}
+
+.customer-resolved {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 5px;
+  padding: 12px 14px; background: oklch(0.94 0.05 150); border: 1px solid oklch(0.8 0.08 150); border-radius: 10px;
+}
+.customer-resolved-name { font-weight: 700; font-size: 14px; flex: 1 1 auto; min-width: 120px; }
+.customer-resolved-company { flex: 1 1 100%; font-size: 12.5px; color: oklch(0.45 0.02 255); }
+.customer-change-btn {
+  background: transparent; border: 1px solid oklch(0.7 0.006 255); border-radius: 999px;
+  padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer; color: oklch(0.3 0.02 255);
+}
+
+.customer-warning { margin-top: 8px; margin-bottom: 0; }
+.customer-error { margin-bottom: 8px; }
+
+.customer-form { margin-top: 4px; }
+.customer-form-title { font-size: 13.5px; font-weight: 700; margin-bottom: 2px; }
+.customer-form-row { display: flex; gap: 10px; }
+.customer-form-row > div { flex: 1; min-width: 0; }
+.customer-form-actions { display: flex; gap: 10px; margin-top: 16px; }
+.customer-form-actions .customer-back-btn {
+  flex: 1; border: 1px solid oklch(0.8 0.006 255); border-radius: 999px; padding: 10px 0; color: oklch(0.4 0.02 255);
+}
+.customer-save-btn {
+  flex: 1; padding: 10px 0; border-radius: 999px; font-size: 13.5px; font-weight: 700; cursor: pointer;
+  background: #2f8fef; border: none; color: white;
+}
+.customer-save-btn:disabled { opacity: .6; cursor: default; }
+
+.modal-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+.modal-cancel, .modal-confirm, .modal-secondary {
+  flex: 1; min-width: 96px; padding: 12px 0; border-radius: 999px; font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.modal-cancel { background: transparent; border: 1px solid oklch(0.8 0.006 255); color: oklch(0.4 0.02 255); }
+.modal-confirm { background: #2f8fef; border: none; color: white; }
+.modal-confirm:disabled { opacity: .6; cursor: default; }
+/* Third button variant (added with the detailed receipt's "Email Receipt"
+   button, 2026-09-30) -- outlined in the same blue as .modal-confirm's
+   fill, so it reads as a secondary-but-related action rather than a
+   plain Cancel. flex-wrap above lets a 3-button row (Close / Email
+   Receipt / Print Receipt) wrap to two lines on the receipt modal's
+   380px width instead of squeezing each label. */
+.modal-secondary { background: transparent; border: 1px solid #2f8fef; color: #2f8fef; }
+
+/* ---- Computer upsell builder (added 2026-09-16) ---- */
+
+.computer-builder-modal { max-width: 560px; }
+
+.catalog-card-badge.computer { background: oklch(0.88 0.09 250); color: oklch(0.3 0.12 255); }
+
+.cb-item-row {
+  display: flex; align-items: center; gap: 14px;
+  background: oklch(0.94 0.006 255); border-radius: 12px; padding: 14px 16px; margin-bottom: 6px;
+}
+.cb-item-main { flex: 1; min-width: 0; }
+.cb-item-name { font-size: 15px; font-weight: 700; }
+.cb-item-desc { font-size: 12px; color: oklch(0.5 0.02 255); margin-top: 2px; }
+.cb-item-qty { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.cb-item-qty button {
+  width: 24px; height: 24px; border-radius: 50%; border: 1px solid oklch(0.75 0.006 255);
+  background: white; cursor: pointer; font-size: 13px; line-height: 1;
+}
+.cb-item-qty input { width: 34px; text-align: center; border: none; background: transparent; font-size: 13px; }
+.cb-item-price { font-size: 13px; font-weight: 700; color: #1a6fd6; flex: 0 0 auto; white-space: nowrap; }
+
+.cb-section-label {
+  margin-top: 18px; font-size: 11px; font-weight: 700; color: oklch(0.5 0.02 255);
+  text-transform: uppercase; letter-spacing: .03em;
+}
+
+.cb-protection-list { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.cb-protection-item {
+  display: flex; align-items: center; gap: 10px;
+  background: oklch(0.96 0.006 255); border-radius: 10px; padding: 10px 12px; cursor: pointer;
+}
+.cb-protection-item.unavailable { opacity: .55; cursor: default; }
+.cb-protection-name { flex: 1; font-size: 13px; font-weight: 600; }
+.cb-protection-price { font-size: 12.5px; font-weight: 700; color: #1a6fd6; }
+.cb-protection-unavailable-note { font-size: 11px; color: oklch(0.55 0.02 255); }
+.cb-protection-loading { font-size: 12.5px; color: oklch(0.5 0.02 255); margin-top: 8px; }
+
+/* System Prep flat-fee toggle button (added 2026-09-17) -- a single
+   on/off button rather than a checkbox row, mirroring how the Solutions
+   Creator portal renders a one-choice "chip" option for the same item.
+   Unlike .cb-protection-item, this never shows a live catalog price: the
+   $180 is a fixed flat fee (see SYSTEM_PREP_ITEM_DEF / checkout.php's
+   REGISTER_FLAT_FEE_OVERRIDES), so the label states it plainly. */
+.cb-system-prep-wrap { margin-top: 8px; }
+.cb-system-prep-btn {
+  border: 1px solid oklch(0.8 0.006 255); border-radius: 999px; padding: 9px 16px;
+  font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'IBM Plex Sans', sans-serif;
+  background: oklch(0.96 0.006 255); color: oklch(0.3 0.02 255);
+}
+.cb-system-prep-btn.selected { background: #2f8fef; border-color: #2f8fef; color: white; }
+
+.cb-extra-search-wrap { position: relative; margin-top: 8px; }
+.cb-extra-search-wrap input {
+  width: 100%; font-size: 13.5px; padding: 10px 12px; border: 1px solid oklch(0.85 0.006 255);
+  border-radius: 8px; font-family: 'IBM Plex Sans', sans-serif;
+}
+.cb-extra-search-results {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: white;
+  border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,0.22); max-height: 220px; overflow-y: auto;
+  z-index: 5; padding: 4px;
+}
+.cb-extra-search-result {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 9px 10px; border-radius: 7px; cursor: pointer; font-size: 12.5px;
+}
+.cb-extra-search-result:hover { background: oklch(0.94 0.006 255); }
+.cb-extra-search-empty { padding: 10px 12px; font-size: 12.5px; color: oklch(0.5 0.02 255); }
+
+.cb-extras-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.cb-extra-item {
+  display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid oklch(0.88 0.006 255);
+}
+.cb-extra-name { font-size: 13px; font-weight: 600; }
+.cb-extra-price { font-size: 11px; color: oklch(0.5 0.02 255); }
+.cb-extra-qty { display: flex; align-items: center; gap: 4px; }
+.cb-extra-qty button {
+  width: 22px; height: 22px; border-radius: 50%; border: 1px solid oklch(0.8 0.006 255);
+  background: white; cursor: pointer; font-size: 13px; line-height: 1;
+}
+.cb-extra-qty input { width: 30px; text-align: center; border: none; background: transparent; font-size: 13px; }
+.cb-extra-remove { background: transparent; border: none; color: oklch(0.6 0.02 255); cursor: pointer; font-size: 13px; }
+.cb-extra-remove:hover { color: oklch(0.55 0.18 30); }
+
+.cb-bom-total {
+  display: flex; justify-content: space-between; font-size: 15px; font-weight: 700;
+  padding: 14px 0 0; margin-top: 14px; border-top: 1px solid oklch(0.85 0.006 255);
+}
+
+/* ---- Receipt ---- */
+
+.receipt-modal { max-width: 380px; }
+.receipt { font-family: 'IBM Plex Sans', monospace; font-size: 13px; }
+.receipt-header { text-align: center; margin-bottom: 16px; }
+.receipt-brand { font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 700; }
+.receipt-sub { font-size: 12px; color: oklch(0.5 0.02 255); margin-top: 2px; }
+.receipt-meta { font-size: 11px; color: oklch(0.5 0.02 255); margin-top: 4px; }
+.receipt-items { border-top: 1px dashed oklch(0.75 0.006 255); border-bottom: 1px dashed oklch(0.75 0.006 255); padding: 10px 0; margin-bottom: 10px; }
+.receipt-line { display: flex; justify-content: space-between; padding: 3px 0; }
+.receipt-line.total { font-weight: 700; font-size: 15px; border-top: 1px solid oklch(0.8 0.006 255); margin-top: 6px; padding-top: 8px; }
+.receipt-note { margin-top: 10px; font-size: 12px; color: oklch(0.45 0.02 255); font-style: italic; }
+.receipt-footer { text-align: center; margin-top: 16px; font-size: 12px; color: oklch(0.5 0.02 255); }
+
+/* ---- Detailed invoice/receipt item + labor rows (added 2026-09-30,
+   shared by the register Complete Sale receipt today and, later, a
+   ConnectWise ticket-invoice screen -- see saleToInvoice() /
+   detailedInvoiceHtml() in app.js) ---- */
+.invoice-section-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  color: oklch(0.55 0.02 255); margin: 12px 0 4px;
+}
+.invoice-items { border-top: 1px dashed oklch(0.75 0.006 255); border-bottom: 1px dashed oklch(0.75 0.006 255); padding: 8px 0; margin-bottom: 10px; }
+.invoice-item-row { padding: 5px 0; }
+.invoice-item-row + .invoice-item-row { border-top: 1px dotted oklch(0.88 0.006 255); }
+.invoice-item-desc { font-size: 13px; }
+.invoice-item-code { color: oklch(0.55 0.02 255); font-weight: 400; }
+.invoice-item-figures {
+  display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 2px;
+  font-size: 11.5px; color: oklch(0.5 0.02 255);
+}
+
+/* ---- Sale history ---- */
+
+.history-table-wrap { overflow-x: auto; }
+.history-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.history-table th {
+  text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .03em;
+  color: oklch(0.55 0.02 255); padding: 10px 12px; border-bottom: 1px solid oklch(0.28 0.03 255);
+}
+.history-row { cursor: pointer; }
+.history-row:hover { background: oklch(0.2 0.03 255); }
+.history-table td { padding: 12px; border-bottom: 1px solid oklch(0.24 0.03 255); }
+.history-total { font-weight: 700; }
+
+/* ---- Metrics screen (added 2026-09-14) ---- */
+
+.metrics-layout { display: flex; flex-direction: column; gap: 22px; max-width: 900px; }
+.metrics-group {
+  background: oklch(0.19 0.03 255); border: 1px solid oklch(0.26 0.03 255);
+  border-radius: 16px; padding: 20px 22px;
+}
+.metrics-group-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; color: white; margin-bottom: 14px; }
+.metrics-stat-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.metrics-stat-tile { flex: 1; min-width: 140px; background: oklch(0.15 0.028 255); border-radius: 12px; padding: 16px; text-align: center; }
+.metrics-stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 30px; font-weight: 700; color: #2f8fef; }
+.metrics-stat-label { font-size: 11.5px; color: oklch(0.6 0.02 255); margin-top: 4px; text-transform: uppercase; letter-spacing: .02em; }
+
+/* ---- Past Sales / Returns queue (added 2026-09-14) ---- */
+
+.past-sales-title { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; color: white; margin: 22px 0 10px; }
+.past-sales-title:first-child { margin-top: 0; }
+
+.returns-queue { margin-bottom: 6px; }
+.returns-queue-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.returns-queue-filters { display: flex; gap: 6px; }
+.returns-filter-chip {
+  background: transparent; border: 1px solid oklch(0.35 0.03 255); color: oklch(0.7 0.02 255);
+  font-size: 11.5px; font-weight: 700; padding: 5px 12px; border-radius: 999px; cursor: pointer;
+}
+.returns-filter-chip:hover { border-color: #2f8fef; }
+.returns-filter-chip.active { background: #2f8fef; border-color: #2f8fef; color: #fff; }
+.returns-empty { padding: 22px 0; }
+
+.return-sale-link { background: transparent; border: none; color: #6db4ff; font-weight: 700; cursor: pointer; padding: 0; font-size: 13px; }
+.returns-status-badge {
+  display: inline-block; font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+  text-transform: uppercase; letter-spacing: .02em; white-space: nowrap;
+}
+.returns-status-badge.pending { background: oklch(0.3 0.09 70); color: oklch(0.88 0.1 70); }
+.returns-status-badge.completed { background: oklch(0.28 0.09 150); color: oklch(0.85 0.1 150); }
+.returns-complete-row { display: flex; gap: 6px; align-items: center; }
+.returns-rma-input {
+  width: 80px; font-size: 12px; padding: 6px 8px; border-radius: 6px;
+  border: 1px solid oklch(0.35 0.03 255); background: oklch(0.15 0.028 255); color: white;
+}
+.returns-complete-btn {
+  background: transparent; border: 1px solid oklch(0.45 0.15 150); color: oklch(0.75 0.15 150);
+  font-size: 11px; font-weight: 700; padding: 6px 10px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+}
+.returns-complete-btn:hover { background: oklch(0.28 0.09 150); }
+
+.return-start-btn {
+  background: transparent; border: 1px solid oklch(0.35 0.03 255); color: oklch(0.75 0.02 255);
+  font-size: 11.5px; font-weight: 700; padding: 6px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+}
+.return-start-btn:hover { border-color: #2f8fef; color: #fff; }
+
+/* ---- Start-a-return modal (added 2026-09-14) ---- */
+
+.return-modal { max-width: 480px; }
+.return-modal label {
+  display: block; margin-top: 14px; font-size: 11px; font-weight: 700;
+  color: oklch(0.5 0.02 255); text-transform: uppercase; letter-spacing: .03em;
+}
+.return-modal input[type="text"] {
+  margin-top: 5px; width: 100%; font-size: 14px; padding: 10px 12px;
+  border: 1px solid oklch(0.85 0.006 255); border-radius: 8px; font-family: 'IBM Plex Sans', sans-serif;
+}
+.return-customer-line { font-size: 13.5px; font-weight: 700; margin-bottom: 14px; }
+.return-result-note { font-size: 13px; color: oklch(0.45 0.02 255); margin-bottom: 14px; line-height: 1.4; }
+
+.return-items-list { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; margin-bottom: 14px; }
+.return-item-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; background: oklch(0.96 0.006 255); border-radius: 10px;
+}
+.return-item-row.disabled { opacity: .55; }
+.return-item-name { font-size: 13px; font-weight: 700; }
+.return-item-sub { font-size: 11px; color: oklch(0.5 0.02 255); margin-top: 2px; }
+.return-item-total { font-size: 13px; font-weight: 700; }
+.return-item-qty { display: flex; align-items: center; gap: 4px; }
+.return-item-qty button {
+  width: 24px; height: 24px; border-radius: 50%; border: 1px solid oklch(0.6 0.02 255);
+  background: transparent; cursor: pointer; font-size: 13px; line-height: 1;
+}
+.return-item-qty button:disabled { opacity: .35; cursor: default; }
+.return-item-qty input[type="text"] { margin-top: 0; width: 38px; text-align: center; padding: 4px; border: none; background: transparent; font-size: 13px; }
+
+.return-fee-preview { background: oklch(0.94 0.006 255); border-radius: 10px; padding: 12px 14px; margin-bottom: 6px; }
+.return-fee-row { display: flex; justify-content: space-between; font-size: 13.5px; padding: 3px 0; }
+
+.return-stipulations {
+  margin-top: 18px; background: oklch(0.94 0.06 70); border: 1px solid oklch(0.78 0.1 70);
+  border-radius: 10px; padding: 14px 16px;
+}
+.return-stipulations-title { font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+.return-stipulations ul { margin: 0 0 10px; padding-left: 18px; font-size: 12.5px; line-height: 1.55; }
+.return-modal .return-ack-label {
+  display: flex; align-items: flex-start; gap: 8px; margin-top: 0;
+  font-size: 12.5px; font-weight: 600; text-transform: none; letter-spacing: normal;
+  color: oklch(0.25 0.02 255); cursor: pointer;
+}
+.return-ack-label input[type="checkbox"] { margin-top: 2px; }
+
+/* ---- Front-screen home tiles + New Customer/Customer Lookup/Returns/
+   Service Tickets screens (added 2026-09-14, front-screen redesign) ---- */
+
+.home-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+  padding: 10px 0 40px;
+}
+.home-tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  aspect-ratio: 1.3 / 1; min-height: 150px;
+  background: oklch(0.19 0.03 255); border: 1px solid oklch(0.28 0.03 255); border-radius: 18px;
+  color: oklch(0.85 0.02 255); cursor: pointer;
+}
+.home-tile:hover { border-color: #2f8fef; background: oklch(0.22 0.04 255); }
+.home-tile-icon { font-size: 40px; line-height: 1; }
+.home-tile-label { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; text-align: center; padding: 0 10px; }
+
+.screen-header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
+.screen-back-btn {
+  background: transparent; border: 1px solid oklch(0.35 0.03 255); color: oklch(0.8 0.02 255);
+  font-size: 12.5px; font-weight: 700; padding: 7px 14px; border-radius: 999px; cursor: pointer;
+}
+.screen-back-btn:hover { border-color: #2f8fef; color: #fff; }
+.screen-header-title { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; color: white; }
+.screen-blurb { font-size: 13px; color: oklch(0.6 0.02 255); margin: 6px 0 20px; max-width: 640px; }
+
+.screen-panel {
+  background: oklch(0.98 0.006 255); color: oklch(0.2 0.03 255);
+  border-radius: 18px; padding: 26px 28px; max-width: 480px;
+}
+
+.customer-resolved-email { flex: 1 1 100%; font-size: 12px; color: oklch(0.45 0.02 255); margin-top: -2px; }
+
+.signup-company-matched {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 9px 12px; margin-top: 6px; background: oklch(0.94 0.05 150);
+  border: 1px solid oklch(0.8 0.08 150); border-radius: 8px; font-size: 12.5px;
+}
+.signup-company-matched .customer-back-btn { margin-left: auto; }
+
+.signup-email-panel { margin-top: 18px; }
+.signup-email-sent {
+  padding: 14px 16px; background: oklch(0.94 0.05 150); border: 1px solid oklch(0.8 0.08 150);
+  border-radius: 10px; font-size: 13.5px; font-weight: 600;
+}
+.signup-email-note { font-size: 11.5px; color: oklch(0.5 0.02 255); margin-top: 6px; }
+
+.ticket-toolbar { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
+.ticket-toolbar input[type="text"] {
+  flex: 1; min-width: 240px; background: oklch(0.98 0.006 255); border: none; border-radius: 999px;
+  padding: 11px 18px; font-size: 14px; font-family: 'IBM Plex Sans', sans-serif; color: oklch(0.2 0.03 255);
+}
+
+/* ---- Sales tax (added 2026-09-16) -- ConnectWise Tax Code status shown
+   on a resolved customer (checkout's customer-resolved card and
+   customerSummaryCardHtml()), the checkout modal's computed tax-preview
+   row, and the Tax Exempt checkbox on the New Company / New Customer Sign
+   Up forms. See api/tax.php/tax-core.php/customers.php for the backend. */
+
+.customer-tax-status {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 8px; padding-top: 8px; border-top: 1px dashed oklch(0.82 0.03 150);
+}
+.tax-status-badge {
+  font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+  background: oklch(0.92 0.03 255); color: oklch(0.35 0.06 255);
+}
+.tax-status-badge.exempt { background: oklch(0.92 0.07 140); color: oklch(0.35 0.09 140); }
+.tax-status-loading, .tax-status-none { font-size: 12px; color: oklch(0.5 0.02 255); }
+.tax-status-error { font-size: 12px; color: oklch(0.5 0.15 30); }
+.tax-exempt-btn {
+  background: transparent; border: 1px solid oklch(0.7 0.006 255); border-radius: 999px;
+  padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer; color: oklch(0.3 0.02 255);
+}
+.tax-exempt-btn:disabled { opacity: .6; cursor: default; }
+.tax-preview-value { font-variant-numeric: tabular-nums; }
+
+.checkbox-label {
+  display: flex; align-items: flex-start; gap: 8px; margin-top: 14px;
+  font-size: 12.5px; font-weight: 600; text-transform: none; letter-spacing: normal;
+  color: oklch(0.25 0.02 255); cursor: pointer;
+}
+.checkbox-label input[type="checkbox"] { margin-top: 2px; }
+
+/* ---- Print ---- */
+
+@media print {
+  body * { visibility: hidden; }
+  #printableReceipt, #printableReceipt * { visibility: visible; }
+  #printableReceipt { position: absolute; top: 0; left: 0; width: 100%; color: black; background: white; }
+  .no-print { display: none !important; }
+  /* The receipt is nested inside .modal-backdrop/.modal -- those need to
+     stay visible (display, not just visibility) for #printableReceipt
+     inside them to render at all, but stripped of their on-screen
+     chrome so only the receipt itself prints. */
+  .modal-backdrop { background: white !important; position: static !important; padding: 0 !important; }
+  .modal { box-shadow: none !important; max-height: none !important; overflow: visible !important; background: white !important; max-width: none !important; }
+}

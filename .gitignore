@@ -1,0 +1,23 @@
+# Server-side links to the shared (central) install -- created on the server
+# by deploy/link-central.sh, never committed. Anchored, no trailing slash, so
+# they match as symlinks.
+/register/api
+/ratesheet/api
+/auth
+/login.php
+/logout.php
+
+# Any runtime data or credentials that ever land here by mistake
+/data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*-config.php
+!*-config.sample.php
+
+# Scratch folder used by Claude sessions for file delivery
+/Claude outputs/
+
+.DS_Store
+Thumbs.db
+*.swp
