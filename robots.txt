@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /register/
+Disallow: /ratesheet/
+Disallow: /auth/
+Sitemap: https://codebluetechexpress.com/sitemap.xml
