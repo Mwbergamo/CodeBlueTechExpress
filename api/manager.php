@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/graph.php';
+require __DIR__ . '/lib/connectwise.php';
 
 /*
  * Staff API for the Schedule Manager (Microsoft 365 sign-in required).
@@ -11,10 +12,10 @@ require __DIR__ . '/lib/graph.php';
  * recipient is ALWAYS the address on the request, never taken from the browser.
  */
 
-function te_state(PDO $db, array $user): array
+function te_state(PDO $db, array $user, ?string $warning = null): array
 {
     $since = (new DateTimeImmutable('today'))->modify('-30 days')->format('Y-m-d');
-    $s = $db->prepare('SELECT * FROM appointments WHERE day >= ? ORDER BY day, hour, id');
+    $s = $db->prepare("SELECT * FROM appointments WHERE day >= ? AND status <> 'removed' ORDER BY day, hour, id");
     $s->execute([$since]);
     $appts = []; $ids = [];
     foreach ($s as $r) {
@@ -24,6 +25,10 @@ function te_state(PDO $db, array $user): array
             'address' => $r['address'], 'reason' => $r['reason'], 'status' => $r['status'],
             'created' => (int) $r['created'], 'thread' => [],
         ];
+        if (te_cw_enabled()) {
+            $a['sr'] = $r['cw_ticket'] !== null ? (int) $r['cw_ticket'] : null;
+            $a['cwWait'] = $r['cw_ticket'] === null && in_array($r['status'], TE_ACTIVE, true);
+        }
         if ($r['ended_at'] !== null) { $a['endedAt'] = (int) $r['ended_at']; }
         if ($r['moved_day'] !== null) { $a['movedFrom'] = ['day' => $r['moved_day'], 'hour' => (int) $r['moved_hour']]; }
         $appts[(int) $r['id']] = $a; $ids[] = (int) $r['id'];
@@ -41,7 +46,8 @@ function te_state(PDO $db, array $user): array
     }
     te_session();
     return ['ok' => true, 'me' => ['name' => $user['name'], 'email' => $user['email']], 'csrf' => $_SESSION['csrf'] ?? '',
-            'appts' => array_values($appts), 'capacity' => (object) $cap, 'defaultCap' => te_default_cap($db), 'outbox' => $out];
+            'appts' => array_values($appts), 'capacity' => (object) $cap, 'defaultCap' => te_default_cap($db), 'outbox' => $out,
+            'cwOn' => te_cw_enabled(), 'cwWarning' => te_setting($db, 'cw_warning') ?: null, 'warning' => $warning];
 }
 
 function te_appt(PDO $db, $id): array
@@ -69,11 +75,42 @@ function te_mail_or_fail(PDO $db, array $a, string $kind, array $in, array $user
     return (int) $db->lastInsertId();
 }
 
+/** Writes what the technician just did onto the ConnectWise ticket (status, notes, new time). */
+function te_cw_after(PDO $db, array $before, string $act, array $ctx, array $user): ?string
+{
+    if (!te_cw_enabled()) { return null; }
+    $row = te_appt($db, $before['id']);
+    if (empty($row['cw_ticket'])) { return null; }
+    $c = te_cw_cfg();
+    $who = $user['name'] !== '' ? $user['name'] : $user['email'];
+    $job = ['notes' => []];
+    if ($act === 'confirm') {
+        $job['status'] = (string) ($c['status_scheduled'] ?? 'Scheduled');
+        $job['notes'][] = 'Approved by ' . $who . ' in the Schedule Manager for ' . te_when($row['day'], (int) $row['hour']) . '. Confirmation emailed to the customer.';
+    } elseif ($act === 'deny') {
+        if (!empty($c['status_denied'])) { $job['status'] = (string) $c['status_denied']; }
+        $job['notes'][] = 'Declined by ' . $who . ' in the Schedule Manager. Customer emailed.';
+    } elseif ($act === 'ask') {
+        $job['notes'][] = 'Question sent to the customer by ' . $who . ': ' . ($ctx['question'] ?? '');
+    } elseif ($act === 'reschedule') {
+        $job['summary'] = te_cw_summary($row);
+        $job['required'] = te_cw_required($row);
+        $job['notes'][] = 'Moved by ' . $who . ' from ' . te_when($before['day'], (int) $before['hour']) . ' to ' . te_when($row['day'], (int) $row['hour']) . '. Customer emailed.';
+    } elseif ($act === 'finish') {
+        if (!empty($c['status_completed'])) { $job['status'] = (string) $c['status_completed']; }
+        $at = (int) ($ctx['at'] ?? 60);
+        $job['notes'][] = 'Visit ended by ' . $who . ($at < 60 ? ' about ' . $at . ' minutes in.' : ' after the full hour.');
+    }
+    return te_cw_push($db, (int) $row['id'], (int) $row['cw_ticket'], $job);
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'GET') {
     $user = te_require_staff(false);
     if (($_GET['action'] ?? 'state') !== 'state') { te_fail(400, 'Unknown action.'); }
-    te_json(te_state(te_db(), $user));
+    $db = te_db();
+    te_cw_sync($db);
+    te_json(te_state($db, $user));
 }
 if ($method !== 'POST') { te_fail(405, 'GET or POST only.'); }
 
@@ -117,13 +154,14 @@ if ($act === 'finish') {
     $at = (int) ($in['at'] ?? -1);
     if ($a['status'] !== 'confirmed' || !in_array($at, [15, 30, 45, 60], true)) { te_fail(409, 'That visit cannot be ended.'); }
     $db->prepare("UPDATE appointments SET status='completed', ended_at=? WHERE id=?")->execute([$at, $id]);
-    te_json(te_state($db, $user));
+    te_json(te_state($db, $user, te_cw_after($db, $a, 'finish', ['at' => $at], $user)));
 }
 
 if (!in_array($act, ['confirm', 'deny', 'ask', 'reschedule'], true)) { te_fail(400, 'Unknown action.'); }
 
 if ($act === 'confirm') {
     if (!$open) { te_fail(409, 'That request was already handled.'); }
+    if (te_cw_enabled() && empty($a['cw_ticket'])) { te_fail(409, 'This request is not in ConnectWise yet, so it cannot be approved. It retries automatically; try again in a minute.'); }
     if (te_confirmed($db, $a['day'], (int) $a['hour'], $id) >= te_cap_of($db, $a['day'])) { te_fail(409, 'All seats this hour are already confirmed.'); }
 }
 if ($act === 'deny' && !$open) { te_fail(409, 'That request was already handled.'); }
@@ -155,4 +193,4 @@ if ($act === 'confirm') {
        ->execute([$a['day'], $a['hour'], $nd, $nh, $id]);
 }
 $db->exec('COMMIT');
-te_json(te_state($db, $user));
+te_json(te_state($db, $user, te_cw_after($db, $a, $act, ['question' => $question ?? ''], $user)));

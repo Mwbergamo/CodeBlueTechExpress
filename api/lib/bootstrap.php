@@ -161,7 +161,31 @@ CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS ratelimit (ip TEXT NOT NULL, at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS ix_rl ON ratelimit(ip, at);
 SQL);
+    // Columns added after the first release (safe to run on every request).
+    $have = array_column($db->query('PRAGMA table_info(appointments)')->fetchAll(), 'name');
+    foreach (['cw_ticket INTEGER', 'cw_error TEXT', 'cw_push TEXT', 'cw_notified INTEGER NOT NULL DEFAULT 0'] as $def) {
+        if (!in_array(strtok($def, ' '), $have, true)) { $db->exec('ALTER TABLE appointments ADD COLUMN ' . $def); }
+    }
     return $db;
+}
+
+function te_setting(PDO $db, string $k, ?string $default = null): ?string
+{
+    $s = $db->prepare('SELECT v FROM settings WHERE k=?');
+    $s->execute([$k]);
+    $v = $s->fetchColumn();
+    return $v === false ? $default : (string) $v;
+}
+
+function te_set_setting(PDO $db, string $k, string $v): void
+{
+    $db->prepare('INSERT INTO settings (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v')->execute([$k, $v]);
+}
+
+/** "Fri Dec 5, 11:00 AM" */
+function te_when(string $day, int $hour): string
+{
+    return (new DateTimeImmutable($day))->format('D M j') . ', ' . ($hour % 12 ?: 12) . ':00 ' . ($hour < 12 ? 'AM' : 'PM');
 }
 
 /* ------------------------------------------------------------ scheduling */

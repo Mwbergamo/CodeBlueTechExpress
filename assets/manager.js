@@ -57,7 +57,7 @@
   var S = {
     signedIn: false, tab: 'requests', filter: 'action', sort: 'when',
     day: UPCOMING[0], capacity: {}, defaultCap: DEFAULT_CAP, appts: [], outbox: [], modal: null, toast: '', flash: null,
-    checking: !DEMO, csrf: '', me: null, busy: false
+    checking: !DEMO, csrf: '', me: null, busy: false, cwOn: false, cwWarning: '', warning: ''
   };
 
   /* ---------------------------------------------------------------- server (live mode) */
@@ -72,6 +72,7 @@
     S.appts = j.appts || []; S.capacity = {};
     for (var k in (j.capacity || {})) { if (Object.prototype.hasOwnProperty.call(j.capacity, k)) { S.capacity[k] = j.capacity[k]; } }
     S.defaultCap = j.defaultCap; S.outbox = j.outbox || []; S.csrf = j.csrf || S.csrf; S.me = j.me || S.me; S.signedIn = true;
+    S.cwOn = !!j.cwOn; S.cwWarning = j.cwWarning || ''; S.warning = j.warning || '';
   }
   function load(quiet) {
     return call('GET').then(function (r) {
@@ -207,11 +208,11 @@
     }
     var thread = a.thread.length ? '<details class="thread"><summary>' + a.thread.length + (a.thread.length === 1 ? ' message' : ' messages') + ' with ' + esc(a.name.split(' ')[0]) + '</summary>' +
       a.thread.map(function (m) { return '<div class="msg"><b>' + (m.from === 'us' ? 'We asked' : a.name.split(' ')[0] + ' replied') + '</b>' + esc(m.text) + '</div>'; }).join('') + '</details>' : '';
-    var chips = chip(a) + (a.movedFrom ? '<span class="chip chip-moved">Moved from ' + dayShort(a.movedFrom.day) + '</span>' : '') + (s.over && active(a) ? '<span class="chip chip-warn">Over capacity</span>' : '');
-    var canConfirm = s.confirmed < s.cap;
+    var chips = chip(a) + (a.sr ? '<span class="chip chip-moved" title="ConnectWise ticket number">SR#' + a.sr + '</span>' : '') + (a.cwWait ? '<span class="chip chip-warn" title="Not created in ConnectWise yet; this retries automatically">Waiting for ConnectWise</span>' : '') + (a.movedFrom ? '<span class="chip chip-moved">Moved from ' + dayShort(a.movedFrom.day) + '</span>' : '') + (s.over && active(a) ? '<span class="chip chip-warn">Over capacity</span>' : '');
+    var canConfirm = s.confirmed < s.cap && !a.cwWait;
     var btns = '';
     if (act) {
-      btns = '<button class="btn btn-primary btn-sm" data-act="confirm" data-id="' + a.id + '"' + (canConfirm ? '' : ' disabled title="All seats this hour are already confirmed"') + '>' + ic('check') + ' Confirm</button>' +
+      btns = '<button class="btn btn-primary btn-sm" data-act="confirm" data-id="' + a.id + '"' + (canConfirm ? '' : ' disabled title="' + (a.cwWait ? 'Waiting for the ConnectWise ticket to be created' : 'All seats this hour are already confirmed') + '"') + '>' + ic('check') + ' Confirm</button>' +
         '<button class="btn btn-ghost btn-sm" data-act="reschedule" data-id="' + a.id + '">' + ic('calendar') + ' Reschedule</button>' +
         '<button class="btn btn-ghost btn-sm" data-act="ask" data-id="' + a.id + '">' + ic('chat') + ' Ask a question</button>' +
         '<button class="btn btn-danger btn-sm" data-act="deny" data-id="' + a.id + '">Deny</button>';
@@ -383,6 +384,7 @@
     return '<header class="site-header"><div class="container"><a class="brand" href="./" aria-label="Schedule Manager"><img class="brand-logo logo-on-light" src="' + BASE + 'assets/img/logo-full.png" alt="CodeBlue Technology Express" width="137" height="50"><img class="brand-logo logo-on-dark" src="' + BASE + 'assets/img/logo-white.png" alt="" width="137" height="50" aria-hidden="true"></a>' +
       '<div class="bar-right"><span class="bar-title">Schedule Manager</span><span class="pill">' + (DEMO ? 'DEMO' : 'LIVE') + '</span><button class="btn btn-ghost btn-sm" data-act="signout">Sign out</button></div></div></header>' +
       (DEMO ? '<div class="demo-bar"><div class="container">' + ic('info') + '<span>Demo mode. Sample requests, nothing is saved and no email is really sent.</span></div></div>' : '') +
+      (S.cwWarning ? '<div class="demo-bar"><div class="container">' + ic('info') + '<span>' + esc(S.cwWarning) + '</span></div></div>' : '') +
       '<div class="tabs-wrap"><div class="container"><div class="tabs" role="tablist">' + tabs.map(function (t) {
         return '<button class="tab" role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (S.tab === t[0]) + '">' + t[1] + (t[2] ? ' <span class="count hot">' + t[2] + '</span>' : t[0] === 'mail' && S.outbox.length ? ' <span class="count">' + S.outbox.length + '</span>' : '') + '</button>';
       }).join('') + '</div></div></div><main class="m-main" id="main"><div class="container">' + main + '</div></main>';
@@ -428,7 +430,7 @@
     if (act === 'finishgo') {
       var a = find(S.modal.id), at = S.modal.at, fin = function () { done(a, at < 60 ? 'Appointment ended. The seat reopens from ' + timeAt(a.hour, at) + '.' : 'Appointment finished.'); };
       if (DEMO) { a.status = 'completed'; a.endedAt = at; fin(); return; }
-      post({ action: 'finish', id: a.id, at: at }).then(function (r) { if (r.ok) { fin(); } else { S.modal = null; toast(r.error); load(true); } });
+      post({ action: 'finish', id: a.id, at: at }).then(function (r) { if (r.ok) { fin(); if (S.warning) { toast(S.warning); } } else { S.modal = null; toast(r.error); load(true); } });
       return;
     }
   });
@@ -460,7 +462,7 @@
       S.busy = false;
       if (r.ok) {
         var labels = { confirm: 'Confirmed', reschedule: 'Rescheduled', deny: 'Denied', ask: 'Question sent' };
-        done(a, labels[M.kind] + '. Email sent to ' + a.email + '.');
+        done(a, labels[M.kind] + '. Email sent to ' + a.email + '.' + (S.warning ? ' ' + S.warning : ''));
       } else if (S.signedIn) {
         err.textContent = r.error; if (btn) { btn.disabled = false; }
         if (/already|no longer|no open seat|already confirmed/i.test(r.error)) { load(true); }

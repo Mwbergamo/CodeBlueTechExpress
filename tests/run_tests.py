@@ -189,6 +189,9 @@ try:
         c, js, _ = call(pub, 'POST', '/api/appointments.php', dict(good, start=next_weekday(10 + i).isoformat() + 'T13:00', email=f'r{i}@example.com'))
         if c == 429: break
     check('booking flood is rate-limited', c == 429, c)
+    c, js, _ = call(pub, 'POST', '/api/appointments.php', dict(good, start=next_weekday(30).isoformat() + 'T13:00', email='other@example.com'),
+                    headers={'CF-Connecting-IP': '203.0.113.9'})
+    check('a different visitor (Cloudflare header) is not blocked by that flood', c == 200, (c, js))
 
     # not configured -> safe failure
     os.remove(T + '/te-private/config.php')

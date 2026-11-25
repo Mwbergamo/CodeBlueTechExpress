@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/graph.php';
+require __DIR__ . '/lib/connectwise.php';
 
 // Public booking intake. POST JSON { start, reason, name, address, phone, email }.
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { te_fail(405, 'POST only.'); }
@@ -9,12 +10,19 @@ te_same_origin();
 $in = te_body();
 $db = te_db();
 
-// Basic abuse limit: 5 requests per hour per visitor address.
-$ip = hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '') . '|te');
+// Abuse limits: per visitor per hour, and overall per hour (so a flood from many
+// addresses is still bounded). The site sits behind Cloudflare, where REMOTE_ADDR is
+// Cloudflare's own address, so use the visitor address it passes along when valid.
+$visitor = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? '';
+if (!filter_var($visitor, FILTER_VALIDATE_IP)) { $visitor = $_SERVER['REMOTE_ADDR'] ?? ''; }
+$ip = hash('sha256', $visitor . '|te');
 $db->prepare('DELETE FROM ratelimit WHERE at < ?')->execute([time() - 3600]);
 $c = $db->prepare('SELECT COUNT(*) FROM ratelimit WHERE ip=?');
 $c->execute([$ip]);
-if ((int) $c->fetchColumn() >= 5) { te_fail(429, 'Too many requests. Please call us at (804) 456-4500.'); }
+$total = (int) $db->query('SELECT COUNT(*) FROM ratelimit')->fetchColumn();
+if ((int) $c->fetchColumn() >= (int) te_cfg('booking_limit_per_visitor', 5) || $total >= (int) te_cfg('booking_limit_total', 60)) {
+    te_fail(429, 'Too many requests. Please call us at (804) 456-4500.');
+}
 
 $start = (string) ($in['start'] ?? '');
 if (!preg_match('/^(\d{4}-\d{2}-\d{2})T(\d{2}):00$/', $start, $m)) { te_fail(400, 'Pick a time on the calendar.'); }
@@ -49,16 +57,36 @@ try {
     te_fail(500, 'We could not save that request.');
 }
 
-// Tell the team (best effort: the request is already saved either way).
-$notify = te_cfg('notify_to', '');
-foreach ((array) $notify as $to) {
-    if (!is_string($to) || $to === '') { continue; }
+// Tell the team. With ConnectWise on: open the ticket, then email "SR#<n> - Express
+// Scheduling Request" to express@. Either way the request is already saved.
+$q = $db->prepare('SELECT * FROM appointments WHERE id=?');
+$q->execute([$id]);
+$row = $q->fetch();
+$when = te_when($day, $hour);
+$details = "When: $when\nName: $name\nPhone: $phone\nEmail: $email\nAddress: $address\n\nWhat they need:\n$reason\n";
+$host = $_SERVER['HTTP_HOST'] ?? 'codebluetechexpress.com';
+
+if (te_cw_enabled()) {
     try {
-        $when = (new DateTimeImmutable($day))->format('D M j') . ' at ' . sprintf('%d:00 %s', $hour % 12 ?: 12, $hour < 12 ? 'AM' : 'PM');
-        te_send_mail($to, 'CodeBlue Tech Express', 'New visit request: ' . $when . ', ' . $name,
-            "A new visit request needs a decision.\n\nWhen: $when\nName: $name\nPhone: $phone\nEmail: $email\nAddress: $address\n\nWhat they need:\n$reason\n\nOpen the Schedule Manager: https://" . ($_SERVER['HTTP_HOST'] ?? 'codebluetechexpress.com') . "/manage/\n");
+        te_cw_open_ticket($db, $row);
     } catch (Throwable $e) {
-        error_log('te notify: ' . $e->getMessage());
+        error_log('te ticket: ' . $e->getMessage());
+        $db->prepare('UPDATE appointments SET cw_error=? WHERE id=?')->execute([$e->getMessage(), $id]);
+        $alert = array_filter(array_merge([(string) te_cfg('notice_to', 'express@codebluetechnology.com')], (array) te_cfg('notify_to', [])), 'is_string');
+        foreach (array_unique($alert) as $to) {
+            try {
+                te_send_mail($to, 'CodeBlue Tech Express', 'ACTION: website visit request is not in ConnectWise yet (' . $when . ', ' . $name . ')',
+                    "A visit request was saved, but the ConnectWise ticket could not be created. It will be retried automatically each time the Schedule Manager is opened.\n\nReason: " . $e->getMessage() . "\n\n" . $details . "\nhttps://$host/manage/\n");
+            } catch (Throwable $e2) { error_log('te notify: ' . $e2->getMessage()); }
+        }
+    }
+} else {
+    foreach ((array) te_cfg('notify_to', '') as $to) {
+        if (!is_string($to) || $to === '') { continue; }
+        try {
+            te_send_mail($to, 'CodeBlue Tech Express', 'New visit request: ' . $when . ', ' . $name,
+                "A new visit request needs a decision.\n\n$details\nOpen the Schedule Manager: https://$host/manage/\n");
+        } catch (Throwable $e) { error_log('te notify: ' . $e->getMessage()); }
     }
 }
 te_json(['ok' => true]);

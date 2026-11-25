@@ -32,4 +32,60 @@ if (preg_match('#/v1.0/users/([^/]+)/sendMail$#', $path, $m)) {
     file_put_contents("$dir/mail.log", json_encode(['from' => urldecode($m[1]), 'req' => json_decode(file_get_contents('php://input'), true)]) . "\n", FILE_APPEND);
     http_response_code(202); exit;
 }
+// ---- ConnectWise Manage stand-in: one board ("Express", id 7) with a few statuses.
+if (preg_match('#^/v4_6_release/apis/3\.0(/.*)$#', $path, $m)) {
+    header('Content-Type: application/json');
+    if (($_SERVER['HTTP_AUTHORIZATION'] ?? '') !== 'Basic ' . base64_encode('co+pub:priv') || ($_SERVER['HTTP_CLIENTID'] ?? '') !== 'cw-client') {
+        http_response_code(401); echo json_encode(['code' => 'Unauthorized', 'message' => 'Bad credentials (mock)']); exit;
+    }
+    if (is_file("$dir/cw_down")) { http_response_code(503); echo json_encode(['message' => 'ConnectWise is down (mock)']); exit; }
+    $api = $m[1]; $method = $_SERVER['REQUEST_METHOD'];
+    $statuses = [1 => 'New', 2 => 'Scheduled', 3 => 'Closed', 4 => 'Declined'];
+    $tf = "$dir/cw-tickets.json";
+    $tickets = is_file($tf) ? json_decode(file_get_contents($tf), true) : [];
+    $save = function () use (&$tickets, $tf) { file_put_contents($tf, json_encode($tickets)); };
+    $body = json_decode(file_get_contents('php://input'), true);
+    file_put_contents("$dir/cw-calls.log", $method . ' ' . $api . "\n", FILE_APPEND);
+
+    if ($method === 'GET' && $api === '/service/boards') {
+        echo json_encode(strpos($_GET['conditions'] ?? '', 'Express') !== false ? [['id' => 7, 'name' => 'Express']] : []); exit;
+    }
+    if ($method === 'GET' && $api === '/service/boards/7/statuses') {
+        echo json_encode(array_map(fn($id, $n) => ['id' => $id, 'name' => $n], array_keys($statuses), $statuses)); exit;
+    }
+    if ($method === 'POST' && $api === '/service/tickets') {
+        if (($body['board']['id'] ?? 0) !== 7 || ($body['company']['identifier'] ?? '') !== 'TechExpress' || empty($body['summary'])) {
+            http_response_code(400); echo json_encode(['code' => 'InvalidObject', 'message' => 'bad ticket (mock)']); exit;
+        }
+        $id = 50100 + count($tickets);
+        $sid = $body['status']['id'] ?? 1;
+        $tickets[$id] = array_merge($body, ['id' => $id, 'status' => ['id' => $sid, 'name' => $statuses[$sid]], 'closedFlag' => in_array($sid, [3, 4]), 'notes' => []]);
+        $save(); echo json_encode($tickets[$id]); exit;
+    }
+    if (preg_match('#^/service/tickets/(\d+)$#', $api, $t) && $method === 'PATCH') {
+        $id = (int) $t[1];
+        if (!isset($tickets[$id])) { http_response_code(404); echo json_encode(['message' => 'not found (mock)']); exit; }
+        foreach ($body as $op) {
+            if ($op['path'] === '/status') { $sid = $op['value']['id']; $tickets[$id]['status'] = ['id' => $sid, 'name' => $statuses[$sid]]; $tickets[$id]['closedFlag'] = in_array($sid, [3, 4]); }
+            if ($op['path'] === '/summary') { $tickets[$id]['summary'] = $op['value']; }
+            if ($op['path'] === '/requiredDate') { $tickets[$id]['requiredDate'] = $op['value']; }
+        }
+        $save(); echo json_encode($tickets[$id]); exit;
+    }
+    if (preg_match('#^/service/tickets/(\d+)/notes$#', $api, $t) && $method === 'POST') {
+        $id = (int) $t[1];
+        if (!isset($tickets[$id])) { http_response_code(404); echo json_encode(['message' => 'not found (mock)']); exit; }
+        $tickets[$id]['notes'][] = $body['text']; $save(); echo json_encode(['id' => 1]); exit;
+    }
+    if ($method === 'GET' && $api === '/service/tickets') {
+        $out = [];
+        foreach ($tickets as $t) {
+            if (($t['board']['id'] ?? 0) !== 7 || stripos($t['summary'], 'Express Scheduling Request') === false) { continue; }
+            $out[] = ['id' => $t['id'], 'status' => ['name' => $t['status']['name']], 'closedFlag' => $t['closedFlag']];
+        }
+        echo json_encode($out); exit;
+    }
+    http_response_code(404); echo json_encode(['message' => 'unknown mock route ' . $api]); exit;
+}
+
 http_response_code(404);
