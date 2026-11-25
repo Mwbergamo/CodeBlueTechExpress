@@ -65,6 +65,11 @@ SPRITE = """<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;wid
 <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
 <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
 <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M17 14.2c2.4 0 4.2 1.9 4.2 4.3"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></symbol>
+<symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+<symbol id="i-flag" viewBox="0 0 24 24"><path d="M6 21V4M6 5h11l-2 4 2 4H6"/></symbol>
 </svg>"""
 
 
@@ -534,6 +539,12 @@ PAGES["in-store"] = dict(
             <input type="tel" id="bk-phone" name="phone" autocomplete="tel">
             <span class="err">Please enter a phone number with area code.</span>
           </div>
+          <div class="field">
+            <label for="bk-email">Email</label>
+            <input type="email" id="bk-email" name="email" autocomplete="email">
+            <span class="hint">We email you to confirm your time.</span>
+            <span class="err">Please enter a valid email address.</span>
+          </div>
           <div class="hp" aria-hidden="true"><label for="bk-company">Company</label><input type="text" id="bk-company" tabindex="-1" autocomplete="off"></div>
           <button class="btn btn-primary btn-block" type="submit" id="bk-submit">Request this time</button>
           <p class="form-status" id="bk-status" role="status" aria-live="polite"></p>
@@ -542,7 +553,7 @@ PAGES["in-store"] = dict(
           <h3>Request received</h3>
           <p>We asked for:</p>
           <p class="when" id="bk-sent-when"></p>
-          <p>Our team will confirm your appointment by phone.</p>
+          <p>Our team will confirm your appointment by email.</p>
           <p class="demo" id="bk-sent-demo" hidden>Demo mode: nothing was actually sent.</p>
           <button type="button" class="btn" id="bk-again">Book another time</button>
         </div>
@@ -694,21 +705,58 @@ def build_preview():
     write("dist/preview.html", page)
 
 
+MANAGE_HEAD = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Schedule Manager | CodeBlue Tech Express</title>
+%(icons)s
+%(fonts)s
+<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/manager.css">
+</head>"""
+
+
+def render_manage():
+    h = MANAGE_HEAD % {"icons": ICON_LINKS.replace('href="assets', 'href="../assets'), "fonts": FONTS}
+    return (h + '\n<body class="manage">\n' + SPRITE + '\n<div id="root"></div>\n'
+            '<script src="../assets/config.js"></script>\n<script src="../assets/manager.js"></script>\n</body>\n</html>\n').replace('../assets/img', '../assets/img')
+
+
+def build_manager_preview():
+    css = open(os.path.join(ROOT, "assets/styles.css"), encoding="utf-8").read() + "\n" + open(os.path.join(ROOT, "assets/manager.css"), encoding="utf-8").read()
+    js = open(os.path.join(ROOT, "assets/manager.js"), encoding="utf-8").read()
+    body = SPRITE + '<div id="root"></div>'
+    logos = {"assets/img/logo-full.png": data_uri("assets/img/logo-full.png"), "assets/img/logo-white.png": data_uri("assets/img/logo-white.png")}
+    for k, v in logos.items():
+        js = js.replace("' + BASE + '" + k, v)
+    fonts = FONTS.replace("&amp;", "&")
+    fav = '<link rel="icon" type="image/png" href="%s">' % data_uri("assets/img/favicon-32.png")
+    page = ('<title>Schedule Manager</title>\n<meta name="claude:viewport-fit-sides" content="cover">\n%s\n%s\n<style>\n%s\n</style>\n%s\n<script>\n%s\n</script>\n' % (fav, fonts, css, body, js))
+    write("dist/manager-preview.html", page)
+
+
 def build_sitemap():
     urls = ["index.html"] + [h for _, h in NAV]
     items = "".join("  <url><loc>%s/%s</loc></url>\n" % (SITE, "" if u == "index.html" else u) for u in urls)
     write("sitemap.xml", '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n%s</urlset>\n' % items)
-    write("robots.txt", "User-agent: *\nAllow: /\nDisallow: /register/\nDisallow: /ratesheet/\nDisallow: /auth/\nSitemap: %s/sitemap.xml\n" % SITE)
+    write("robots.txt", "User-agent: *\nAllow: /\nDisallow: /register/\nDisallow: /ratesheet/\nDisallow: /auth/\nDisallow: /manage/\nSitemap: %s/sitemap.xml\n" % SITE)
 
 
 def main():
     for key in PAGES:
         write(PAGES[key]["file"], render_page(key))
         print("wrote", PAGES[key]["file"])
+    write("manage/index.html", render_manage())
+    print("wrote manage/index.html")
     build_sitemap()
     if "--preview" in sys.argv:
         build_preview()
         print("wrote dist/preview.html")
+        build_manager_preview()
+        print("wrote dist/manager-preview.html")
 
 
 if __name__ == "__main__":

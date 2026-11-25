@@ -278,7 +278,8 @@
         setInvalid('bk-reason', !$('#bk-reason').value.trim()),
         setInvalid('bk-name', !$('#bk-name').value.trim()),
         setInvalid('bk-address', !$('#bk-address').value.trim()),
-        setInvalid('bk-phone', phoneDigits.length < 10)
+        setInvalid('bk-phone', phoneDigits.length < 10),
+        setInvalid('bk-email', !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test($('#bk-email').value.trim()))
       ].some(Boolean);
       if (!state.selected) {
         elStatus.className = 'form-status error';
@@ -291,7 +292,8 @@
         reason: $('#bk-reason').value.trim(),
         name: $('#bk-name').value.trim(),
         address: $('#bk-address').value.trim(),
-        phone: $('#bk-phone').value.trim()
+        phone: $('#bk-phone').value.trim(),
+        email: $('#bk-email').value.trim()
       };
       var btn = $('#bk-submit'); btn.disabled = true; elStatus.className = 'form-status'; elStatus.textContent = 'Sending your request...';
       var send = CFG.appointmentUrl ? postJSON(CFG.appointmentUrl, payload) : Promise.resolve({ demo: true });
