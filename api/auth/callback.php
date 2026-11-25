@@ -45,7 +45,13 @@ if (!is_string($state) || $state === '' || !hash_equals((string) $want, $state) 
         'scope' => 'openid profile email',
     ]));
 $tok = json_decode($res, true);
-if ($status !== 200 || !is_array($tok) || empty($tok['id_token'])) { te_deny('Microsoft did not accept the sign-in. Please try again.'); }
+if ($status !== 200 || !is_array($tok) || empty($tok['id_token'])) {
+    // Microsoft's own explanation (e.g. "Invalid client secret") is safe to show and saves a lot of guessing.
+    $why = is_array($tok) ? trim((string) ($tok['error_description'] ?? $tok['error'] ?? '')) : '';
+    $why = substr((string) preg_replace('/\s+/', ' ', $why), 0, 240);
+    error_log('te sign-in token exchange failed (HTTP ' . $status . '): ' . ($why !== '' ? $why : (string) (is_array($tok) ? '' : $res)));
+    te_deny('Microsoft did not accept the sign-in.' . ($why !== '' ? ' It said: ' . $why : ' Please try again.'));
+}
 
 $parts = explode('.', (string) $tok['id_token']);
 if (count($parts) !== 3) { te_deny('Unexpected response from Microsoft.'); }

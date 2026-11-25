@@ -169,6 +169,10 @@ try:
         check('sign-in refused: ' + label, c == 403 and c2 == 401, (c, c2))
     os.remove(T + '/claims.json')
 
+    open(T + '/te-private/config.php', 'w').write(cfg.replace('test-secret', 'wrong-secret'))
+    op = client(); c, js, _ = signin(op)
+    check('bad client secret: refused, and Microsoft\'s reason is shown', c == 403 and b'invalid_grant' in js, (c, js[:200]))
+    open(T + '/te-private/config.php', 'w').write(cfg)
     open(T + '/te-private/config.php', 'w').write(cfg.replace("'notify_to'", "'staff_emails' => ['boss@codebluetechnology.com'], 'notify_to'"))
     op = client(); c, js, _ = signin(op)
     check('sign-in refused when not on the staff list', c == 403, c)
