@@ -12,6 +12,7 @@ Same approach as the CBTWeb build.py. Copy rule carried over from that site:
 no em dashes anywhere in visible copy.
 """
 import base64
+import hashlib
 import mimetypes
 import os
 import re
@@ -637,7 +638,24 @@ def page_body(page):
     return page["main"] % vals
 
 
+def _stamp(m):
+    """Adds ?v=<hash of the file> so browsers and the CDN fetch a changed script or style sheet at once."""
+    rel = m.group(2)
+    full = os.path.join(ROOT, rel.replace("../", ""))
+    if not os.path.isfile(full):
+        return m.group(0)
+    with open(full, "rb") as fh:
+        h = hashlib.md5(fh.read().replace(b"\r\n", b"\n")).hexdigest()[:8]
+    return '%s="%s?v=%s"' % (m.group(1), rel, h)
+
+
+def cache_bust(text):
+    return re.sub(r'(src|href)="((?:\.\./)?assets/[^"?]+\.(?:js|css))"', _stamp, text)
+
+
 def write(path, text):
+    if path.endswith(".html"):
+        text = cache_bust(text)
     full = os.path.join(ROOT, path)
     os.makedirs(os.path.dirname(full), exist_ok=True)
     with open(full, "w", encoding="utf-8", newline="\n") as f:
