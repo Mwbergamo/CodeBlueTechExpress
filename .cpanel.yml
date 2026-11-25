@@ -1,8 +1,6 @@
 ---
 deployment:
   tasks:
-    # Copy the built site from this repo clone into the domain's document root.
-    # .htaccess is intentionally NOT copied so the one in public_html is kept.
     - export DEPLOYPATH=/home1/dxgtdzmy/public_html/
     - /bin/cp -R index.html about.html services.html in-store.html contact.html robots.txt sitemap.xml $DEPLOYPATH
     - /bin/cp -R assets manage register ratesheet $DEPLOYPATH
