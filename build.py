@@ -742,7 +742,7 @@ def build_sitemap():
     urls = ["index.html"] + [h for _, h in NAV]
     items = "".join("  <url><loc>%s/%s</loc></url>\n" % (SITE, "" if u == "index.html" else u) for u in urls)
     write("sitemap.xml", '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n%s</urlset>\n' % items)
-    write("robots.txt", "User-agent: *\nAllow: /\nDisallow: /register/\nDisallow: /ratesheet/\nDisallow: /auth/\nDisallow: /manage/\nSitemap: %s/sitemap.xml\n" % SITE)
+    write("robots.txt", "User-agent: *\nAllow: /\nDisallow: /register/\nDisallow: /ratesheet/\nDisallow: /auth/\nDisallow: /manage/\nDisallow: /api/\nSitemap: %s/sitemap.xml\n" % SITE)
 
 
 def main():

@@ -1,8 +1,9 @@
 /* CodeBlue Tech Express: Schedule Manager (technician console).
-   DEMO mode: all data lives in memory and "sent" emails go to the Sent tab.
-   To go live, set TE_CONFIG.managerUrl and replace the three marked DATA hooks
-   (load, save, sendMail) with calls to the central API. Sign-in is a placeholder
-   for the Entra (Microsoft 365) session used by Solutions Hub. */
+   DEMO mode (TE_CONFIG.managerUrl not set): all data lives in memory and "sent"
+   emails go to the Sent tab.
+   LIVE mode (TE_CONFIG.managerUrl = api/manager.php): everything is loaded from and
+   saved to the server, sign-in is Microsoft 365, and an action only counts as done
+   once the server confirms the customer email was handed to Microsoft 365. */
 (function () {
   'use strict';
   var CFG = window.TE_CONFIG || {};
@@ -55,8 +56,44 @@
   /* ---------------------------------------------------------------- state */
   var S = {
     signedIn: false, tab: 'requests', filter: 'action', sort: 'when',
-    day: UPCOMING[0], capacity: {}, defaultCap: DEFAULT_CAP, appts: [], outbox: [], modal: null, toast: '', flash: null
+    day: UPCOMING[0], capacity: {}, defaultCap: DEFAULT_CAP, appts: [], outbox: [], modal: null, toast: '', flash: null,
+    checking: !DEMO, csrf: '', me: null, busy: false
   };
+
+  /* ---------------------------------------------------------------- server (live mode) */
+  function call(method, body) {
+    var opts = { method: method, credentials: 'same-origin', headers: {} };
+    if (body) { opts.headers['Content-Type'] = 'application/json'; opts.headers['X-CSRF-Token'] = S.csrf; opts.body = JSON.stringify(body); }
+    return fetch(CFG.managerUrl + (method === 'GET' ? '?action=state' : ''), opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) { return { status: r.status, json: j }; });
+    });
+  }
+  function take(j) {
+    S.appts = j.appts || []; S.capacity = {};
+    for (var k in (j.capacity || {})) { if (Object.prototype.hasOwnProperty.call(j.capacity, k)) { S.capacity[k] = j.capacity[k]; } }
+    S.defaultCap = j.defaultCap; S.outbox = j.outbox || []; S.csrf = j.csrf || S.csrf; S.me = j.me || S.me; S.signedIn = true;
+  }
+  function load(quiet) {
+    return call('GET').then(function (r) {
+      S.checking = false;
+      if (r.status === 200) { take(r.json); }
+      else if (r.status === 401) { S.signedIn = false; S.modal = null; }
+      else if (!quiet) { S.toast = 'Could not reach the server. Try again in a moment.'; }
+      render();
+    }).catch(function () { S.checking = false; if (!quiet) { S.toast = 'Could not reach the server. Try again in a moment.'; } render(); });
+  }
+  /** POST an action; resolves {ok, error}. On success the returned state replaces ours. */
+  function post(body) {
+    return call('POST', body).then(function (r) {
+      if (r.status === 200) { take(r.json); return { ok: true }; }
+      if (r.status === 401) { S.signedIn = false; S.modal = null; render(); return { ok: false, error: 'Your session ended. Please sign in again.' }; }
+      return { ok: false, error: (r.json && r.json.error) || 'Something went wrong. Please try again.' };
+    }).catch(function () { return { ok: false, error: 'Could not reach the server. Nothing was changed.' }; });
+  }
+  function saveCap(days, cap) {
+    if (DEMO) { return; }
+    post({ action: 'capacity', days: days, cap: cap }).then(function (r) { if (!r.ok) { toast(r.error); load(true); } else { render(); } });
+  }
 
   function seed() {
     var n = 0;
@@ -333,6 +370,7 @@
 
   /* ---------------------------------------------------------------- shell */
   function vGate() {
+    if (S.checking) { return '<div class="gate"><div class="gate-card"><p>Loading...</p></div></div>'; }
     return '<div class="gate"><div class="gate-card"><img class="logo-on-light" src="' + BASE + 'assets/img/logo-full.png" alt="CodeBlue Technology Express"><img class="logo-on-dark" src="' + BASE + 'assets/img/logo-white.png" alt="" aria-hidden="true">' +
       '<h1>Schedule Manager</h1><p>For CodeBlue Tech Express technicians. Sign in with your CodeBlue Microsoft 365 account.</p>' +
       '<button class="btn btn-primary btn-block" data-act="signin">Sign in with Microsoft</button>' +
@@ -367,12 +405,20 @@
     var t = e.target.closest('[data-act]'); if (!t) { return; }
     var act = t.getAttribute('data-act'), id = t.getAttribute('data-id');
     if (act === 'backdrop') { if (e.target === t) { S.modal = null; render(); } return; }
-    if (act === 'signin') { S.signedIn = true; render(); return; }
-    if (act === 'signout') { S.signedIn = false; S.modal = null; render(); return; }
+    if (act === 'signin') { if (DEMO) { S.signedIn = true; render(); } else { location.href = BASE + 'api/auth/login.php'; } return; }
+    if (act === 'signout') {
+      if (DEMO) { S.signedIn = false; S.modal = null; render(); }
+      else { post({ action: 'signout' }).then(function () { S.signedIn = false; S.modal = null; S.appts = []; render(); }); }
+      return;
+    }
     if (act === 'tab') { S.tab = t.getAttribute('data-tab'); render(); window.scrollTo(0, 0); return; }
     if (act === 'day') { S.day = t.getAttribute('data-day'); render(); return; }
-    if (act === 'cap') { var k = t.getAttribute('data-day'), c = capOf(k) + (+t.getAttribute('data-d')); S.capacity[k] = Math.max(0, Math.min(MAX_CAP, c)); render(); return; }
-    if (act === 'defcap') { S.defaultCap = Math.max(0, Math.min(MAX_CAP, S.defaultCap + (+t.getAttribute('data-d')))); render(); return; }
+    if (act === 'cap') { var k = t.getAttribute('data-day'), c = capOf(k) + (+t.getAttribute('data-d')); S.capacity[k] = Math.max(0, Math.min(MAX_CAP, c)); render(); saveCap([k], S.capacity[k]); return; }
+    if (act === 'defcap') {
+      S.defaultCap = Math.max(0, Math.min(MAX_CAP, S.defaultCap + (+t.getAttribute('data-d')))); render();
+      if (!DEMO) { post({ action: 'defaultcap', cap: S.defaultCap }).then(function (r) { if (!r.ok) { toast(r.error); load(true); } else { render(); } }); }
+      return;
+    }
     if (act === 'open') { S.tab = 'requests'; S.filter = 'all'; S.flash = id; render(); var el = document.getElementById(id); if (el) { el.scrollIntoView({ block: 'center' }); } setTimeout(function () { S.flash = null; render(); }, 1800); return; }
     if (act === 'confirm' || act === 'deny' || act === 'ask' || act === 'reschedule' || act === 'finish') { openModal(act, id); return; }
     if (act === 'close') { S.modal = null; render(); return; }
@@ -380,14 +426,16 @@
     if (act === 'pickhour') { S.modal.hour = +t.getAttribute('data-hour'); render(); return; }
     if (act === 'finishat') { S.modal.at = +t.getAttribute('data-at'); render(); return; }
     if (act === 'finishgo') {
-      var a = find(S.modal.id); a.status = 'completed'; a.endedAt = S.modal.at;
-      done(a, S.modal.at < 60 ? 'Appointment ended. The seat reopens from ' + timeAt(a.hour, S.modal.at) + '.' : 'Appointment finished.'); return;
+      var a = find(S.modal.id), at = S.modal.at, fin = function () { done(a, at < 60 ? 'Appointment ended. The seat reopens from ' + timeAt(a.hour, at) + '.' : 'Appointment finished.'); };
+      if (DEMO) { a.status = 'completed'; a.endedAt = at; fin(); return; }
+      post({ action: 'finish', id: a.id, at: at }).then(function (r) { if (r.ok) { fin(); } else { S.modal = null; toast(r.error); load(true); } });
+      return;
     }
   });
   document.addEventListener('change', function (e) {
     var t = e.target;
     if (t.getAttribute('data-bind')) { S[t.getAttribute('data-bind')] = t.value; render(); return; }
-    if (t.getAttribute('data-week') != null) { if (t.value === '') { return; } WEEKS[+t.getAttribute('data-week')].forEach(function (k) { if (k >= TODAY_K) { S.capacity[k] = +t.value; } }); render(); return; }
+    if (t.getAttribute('data-week') != null) { if (t.value === '') { return; } var wkDays = WEEKS[+t.getAttribute('data-week')].filter(function (k) { return k >= TODAY_K; }); wkDays.forEach(function (k) { S.capacity[k] = +t.value; }); render(); if (wkDays.length) { saveCap(wkDays, +t.value); } return; }
     if (t.getAttribute('data-modal') === 'reason') { S.modal.reason = +t.value; render(); }
   });
   document.addEventListener('input', function (e) {
@@ -403,10 +451,29 @@
     if (!subj || !body) { err.textContent = 'Subject and message cannot be empty.'; return; }
     if (M.kind === 'ask' && !(M.question || '').trim()) { err.textContent = 'Type your question first.'; $('#m-q').focus(); return; }
     if (M.kind === 'confirm' && seats(a.day, a.hour).confirmed >= seats(a.day, a.hour).cap) { err.textContent = 'All seats this hour are already confirmed.'; return; }
-    apply(M.kind, a, subj, body, { day: M.day, hour: M.hour, question: (M.question || '').trim() });
+    var ctx = { day: M.day, hour: M.hour, question: (M.question || '').trim() };
+    if (DEMO) { apply(M.kind, a, subj, body, ctx); return; }
+    if (S.busy) { return; }
+    S.busy = true; err.textContent = 'Sending...';
+    var btn = e.target.querySelector('button[type="submit"]'); if (btn) { btn.disabled = true; }
+    post({ action: M.kind, id: a.id, subject: subj, body: body, day: M.day, hour: M.hour, question: ctx.question }).then(function (r) {
+      S.busy = false;
+      if (r.ok) {
+        var labels = { confirm: 'Confirmed', reschedule: 'Rescheduled', deny: 'Denied', ask: 'Question sent' };
+        done(a, labels[M.kind] + '. Email sent to ' + a.email + '.');
+      } else if (S.signedIn) {
+        err.textContent = r.error; if (btn) { btn.disabled = false; }
+        if (/already|no longer|no open seat|already confirmed/i.test(r.error)) { load(true); }
+      }
+    });
   });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && S.modal) { S.modal = null; render(); } });
 
-  seed();
-  render();
+  if (DEMO) { seed(); render(); }
+  else {
+    render();
+    load();
+    // Pick up new requests without anyone reloading; never disturb an open dialog.
+    setInterval(function () { if (S.signedIn && !S.modal && !S.busy && !document.hidden) { load(true); } }, 60000);
+  }
 })();

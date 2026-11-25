@@ -6,9 +6,12 @@ window.TE_CONFIG = {
   // (read-only feed from the register's synced ConnectWise catalog)
   inventoryUrl: null,
   // GET ?from=YYYY-MM-DD&to=YYYY-MM-DD -> JSON array of booked start times, ISO strings
-  availabilityUrl: null,
-  // POST JSON { start, reason, name, address, phone } -> { ok: true }
-  appointmentUrl: null,
+  availabilityUrl: '/api/availability.php',
+  // POST JSON { start, reason, name, address, phone, email } -> { ok: true }
+  appointmentUrl: '/api/appointments.php',
   // POST JSON { firstName, lastName, business, phone, email, reason } -> { ok: true }
-  contactUrl: null
+  contactUrl: null,
+  // Schedule Manager (staff console). Leave null for the demo console.
+  // GET -> state JSON; POST -> actions. Needs ~/te-private/config.php on the server.
+  managerUrl: '/api/manager.php'
 };

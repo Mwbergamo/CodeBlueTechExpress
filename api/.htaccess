@@ -1,0 +1,9 @@
+# Only the endpoint scripts are reachable; helper code and data never are.
+Options -Indexes
+<FilesMatch "\.(sqlite|json|log|inc)$">
+    Require all denied
+</FilesMatch>
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^lib/ - [F,L]
+</IfModule>

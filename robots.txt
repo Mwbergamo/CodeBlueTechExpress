@@ -4,4 +4,5 @@ Disallow: /register/
 Disallow: /ratesheet/
 Disallow: /auth/
 Disallow: /manage/
+Disallow: /api/
 Sitemap: https://codebluetechexpress.com/sitemap.xml

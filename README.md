@@ -107,3 +107,10 @@ safe to re-run.
 The four endpoints above (inventory feed, availability, appointment requests,
 contact messages), the customer portal (ConnectWise case status, check-in and
 history), and the Warsaw storefront photo.
+
+## Schedule Manager backend
+
+Booking requests, the staff console at `/manage/`, and Microsoft 365 email are served by
+the PHP service in `api/`. One-time setup (Entra app, mail permission, private config):
+see `docs/schedule-backend-setup.md`. Until that is done the booking form tells
+customers to call. Tests: `python3 tests/run_tests.py`.
